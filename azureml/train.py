@@ -1,6 +1,3 @@
-"""
-DON'T MODIFY ANYTHING IN THIS CELL
-"""
 import os
 import pickle as pkl
 import matplotlib.pyplot as plt
@@ -104,9 +101,21 @@ def scale(x, feature_range=(-1, 1)):
     min, max = feature_range
     return x * (max - min) + min
 
+def imshow(img):
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+
 # obtain one batch of training images
 dataiter = iter(celeba_train_loader)
 images, _ = dataiter.next() # _ for no labels
+
+fig = plt.figure(figsize=(20, 4))
+plot_size=20
+for idx in np.arange(plot_size):
+    ax = fig.add_subplot(2, plot_size/2, idx+1, xticks=[], yticks=[])
+    imshow(images[idx])
+    
+run.log_image(name='Input Images', plot=plt)
 
 # check scaled range
 # should be close to -1 to 1
@@ -402,4 +411,26 @@ def train(D, G, n_epochs, print_every=50):
 
 # call training function
 losses = train(D, G, n_epochs=n_epochs)
-run.log('losses', losses)
+
+fig, ax = plt.subplots()
+losses = np.array(losses)
+plt.plot(losses.T[0], label='Discriminator', alpha=0.5)
+plt.plot(losses.T[1], label='Generator', alpha=0.5)
+plt.title("Training Losses")
+plt.legend()
+run.log_image(name='Training Losses', plot=plt)
+
+def view_samples(epoch, samples):
+    fig, axes = plt.subplots(figsize=(16,4), nrows=2, ncols=8, sharey=True, sharex=True)
+    for ax, img in zip(axes.flatten(), samples[epoch]):
+        img = img.detach().cpu().numpy()
+        img = np.transpose(img, (1, 2, 0))
+        img = ((img + 1)*255 / (2)).astype(np.uint8)
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        im = ax.imshow(img.reshape((32,32,3)))
+    run.log_image(name='Generated Images', plot=plt)
+
+with open('train_samples.pkl', 'rb') as f:
+    samples = pkl.load(f)
+_ = view_samples(-1, samples)
