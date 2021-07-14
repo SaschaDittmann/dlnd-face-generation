@@ -51,6 +51,7 @@ parser.add_argument('--beta2', type=float, default=0.999,
                     help='beta2 coefficient used for computing running averages of gradient and its square')
 args = parser.parse_args()
 
+dataset_name = args.dataset_name
 output_dir = args.output_dir
 batch_size = args.batch_size
 img_size = args.img_size
@@ -62,10 +63,12 @@ beta1 = args.beta1
 beta2 = args.beta2
 n_epochs = args.num_epochs
 
+print('Downloading Dataset ', dataset_name)
 data_dir = './data/'
-dataset = Dataset.get_by_name(ws, name=args.dataset_name)
+dataset = Dataset.get_by_name(ws, name=dataset_name)
 os.makedirs(data_dir, exist_ok=True)
 dataset.download(target_path=data_dir, overwrite=False)
+print('Dataset downloaded successfully')
 
 def get_dataloader(batch_size, image_size, data_dir='./data/'):
     """
