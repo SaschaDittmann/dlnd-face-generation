@@ -130,3 +130,5 @@ dmypy.json
 
 # Azure ML
 .azureml/
+azureml/train/
+azureml/conda_dependencies.yml
