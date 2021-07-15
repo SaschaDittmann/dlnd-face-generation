@@ -40,8 +40,10 @@ parser.add_argument('--g_conv_dim', type=int, default=64,
                     help='generator convolution dim')
 parser.add_argument('--z_size', type=int, default=100,
                     help='z size')
-parser.add_argument('--learning_rate', type=float, default=0.0002, 
-                    help='learning rate')
+parser.add_argument('--d_learning_rate', type=float, default=0.0002, 
+                    help='discriminator learning rate')
+parser.add_argument('--g_learning_rate', type=float, default=0.0002, 
+                    help='generator learning rate')
 parser.add_argument('--beta1', type=float, default=0.9, 
                     help='beta1 coefficient used for computing running averages of gradient and its square')
 parser.add_argument('--beta2', type=float, default=0.999, 
@@ -55,7 +57,8 @@ img_size = args.img_size
 d_conv_dim = args.d_conv_dim
 g_conv_dim = args.g_conv_dim
 z_size = args.z_size
-lr = args.learning_rate
+d_lr = args.d_learning_rate
+g_lr = args.g_learning_rate
 beta1 = args.beta1
 beta2 = args.beta2
 n_epochs = args.num_epochs
@@ -296,8 +299,8 @@ def fake_loss(D_out):
     return loss
 
 # Create optimizers for the discriminator D and generator G
-d_optimizer = optim.Adam(D.parameters(), lr, [beta1, beta2])
-g_optimizer = optim.Adam(G.parameters(), lr, [beta1, beta2])
+d_optimizer = optim.Adam(D.parameters(), d_lr, [beta1, beta2])
+g_optimizer = optim.Adam(G.parameters(), g_lr, [beta1, beta2])
 
 def train(D, G, n_epochs, print_every=50):
     '''Trains adversarial networks for some number of epochs
