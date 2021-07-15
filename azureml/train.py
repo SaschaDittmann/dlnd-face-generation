@@ -125,17 +125,14 @@ scaled_img = scale(img)
 print('Min: ', scaled_img.min())
 print('Max: ', scaled_img.max())
 
-def conv(in_channels, out_channels, kernel_size, stride=2, padding = 1, negative_slope=0.2, batch_norm= True):
+def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, negative_slope=0.2, batch_norm=True):
     layers = []
     conv_layer = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
                        kernel_size = kernel_size, stride = stride, padding = padding, bias = False)
     layers.append(conv_layer)
-    
     if batch_norm:
         layers.append(nn.BatchNorm2d(out_channels))
-    
     layers.append(nn.LeakyReLU(negative_slope))
-    
     return nn.Sequential(*layers)
 
 class Discriminator(nn.Module):
@@ -148,13 +145,18 @@ class Discriminator(nn.Module):
 
         # complete init function
         self.conv_dim = conv_dim
-        
+
+        # 32x32 input
         self.conv1 = conv(3, conv_dim, 4, negative_slope=0.2, batch_norm=False)
+        # 16x16 out
         self.conv2 = conv(conv_dim, conv_dim*2, 4, negative_slope=0.2)
+        # 8x8 out
         self.conv3 = conv(conv_dim*2, conv_dim*4, 4, negative_slope=0.2)
-        self.conv4 = conv(conv_dim*4, conv_dim*8, 4, negative_slope=0.2)
+        # 4x4 out
         
-        self.fc = nn.Linear(conv_dim*8*2*2, 1)
+        # final, fully-connected layer
+        self.fc = nn.Linear(conv_dim*4*4*4, 1)
+        
     def forward(self, x):
         """
         Forward propagation of the neural network
@@ -165,10 +167,9 @@ class Discriminator(nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
-        x = self.conv4(x)
         
         # flatten
-        x = x.view(-1, self.conv_dim*8*2*2)
+        x = x.view(-1, self.conv_dim*4*4*4)
         
         x = self.fc(x)
         return x
@@ -193,12 +194,11 @@ class Generator(nn.Module):
         # complete init function
         self.conv_dim = conv_dim
 
-        self.fc = nn.Linear(z_size, conv_dim*8*2*2)
+        self.fc = nn.Linear(z_size, conv_dim*4*4*4)
         
-        self.t_conv1 = deconv(conv_dim*8, conv_dim*4, 4)
-        self.t_conv2 = deconv(conv_dim*4, conv_dim*2, 4)
-        self.t_conv3 = deconv(conv_dim*2, conv_dim, 4)
-        self.t_conv4 = deconv(conv_dim, 3, 4, batch_norm=False)
+        self.t_conv1 = deconv(conv_dim*4, conv_dim*2, 4)
+        self.t_conv2 = deconv(conv_dim*2, conv_dim, 4)
+        self.t_conv3 = deconv(conv_dim, 3, 4, batch_norm=False)
     def forward(self, x):
         """
         Forward propagation of the neural network
@@ -206,20 +206,19 @@ class Generator(nn.Module):
         :return: A 32x32x3 Tensor image as output
         """
         # define feedforward behavior
-        x = self.fc(x)
-        x = x.view(-1, self.conv_dim*8, 2, 2) # (batch_size, depth, 4, 4)
         
+        # fully-connected + reshape
+        x = self.fc(x)
+        x = x.view(-1, self.conv_dim*4, 4, 4) # (batch_size, depth, 4, 4)
+        
+        # hidden transpose conv layers + relu
         x = self.t_conv1(x)
         x = F.relu(x)
-        
         x = self.t_conv2(x)
         x = F.relu(x)
         
-        x = self.t_conv3(x)
-        x = F.relu(x)
-        
         # last layer: tanh activation instead of relu
-        x = self.t_conv4(x)
+        x = self.t_conv3(x)
         x = torch.tanh(x)
         
         return x
@@ -431,6 +430,7 @@ def view_samples(epoch, samples):
         im = ax.imshow(img.reshape((32,32,3)))
     run.log_image(name='Generated Images', plot=plt)
 
-with open('train_samples.pkl', 'rb') as f:
+samples_filename = os.path.join(args.output_dir, "train_samples.pkl")
+with open(samples_filename, 'rb') as f:
     samples = pkl.load(f)
 _ = view_samples(-1, samples)
