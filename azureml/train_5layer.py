@@ -150,13 +150,13 @@ class Discriminator(nn.Module):
         self.conv_dim = conv_dim
 
         # 32x32 input
-        self.conv1 = conv(3, conv_dim, 4, negative_slope=0.2, batch_norm=False)
+        self.conv1 = conv(3, conv_dim, 5, negative_slope=0.2, batch_norm=False)
         # 16x16 out
-        self.conv2 = conv(conv_dim, conv_dim*2, 4, negative_slope=0.2)
+        self.conv2 = conv(conv_dim, conv_dim*2, 5, negative_slope=0.2)
         # 8x8 out
-        self.conv3 = conv(conv_dim*2, conv_dim*4, 4, negative_slope=0.2)
+        self.conv3 = conv(conv_dim*2, conv_dim*4, 5, negative_slope=0.2)
         # 4x4 out
-        self.conv4 = conv(conv_dim*4, conv_dim*8, 4, negative_slope=0.2)
+        self.conv4 = conv(conv_dim*4, conv_dim*8, 5, negative_slope=0.2)
         # 2x2 out
         
         # final, fully-connected layer
@@ -202,10 +202,10 @@ class Generator(nn.Module):
 
         self.fc = nn.Linear(z_size, conv_dim*8*2*2)
         
-        self.t_conv1 = deconv(conv_dim*8, conv_dim*4, 4)
-        self.t_conv2 = deconv(conv_dim*4, conv_dim*2, 4)
-        self.t_conv3 = deconv(conv_dim*2, conv_dim, 4)
-        self.t_conv4 = deconv(conv_dim, 3, 4, batch_norm=False)
+        self.t_conv1 = deconv(conv_dim*8, conv_dim*4, 5)
+        self.t_conv2 = deconv(conv_dim*4, conv_dim*2, 5)
+        self.t_conv3 = deconv(conv_dim*2, conv_dim, 5)
+        self.t_conv4 = deconv(conv_dim, 3, 5, batch_norm=False)
     def forward(self, x):
         """
         Forward propagation of the neural network
