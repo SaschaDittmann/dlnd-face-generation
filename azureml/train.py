@@ -34,14 +34,16 @@ parser.add_argument('--batch_size', type=int, default=256,
                     help='number of words in a sequence')
 parser.add_argument('--img_size', type=int, default=32,
                     help='image size')
-parser.add_argument('--d_conv_dim', type=int, default=64,
+parser.add_argument('--d_conv_dim', type=int, default=32,
                     help='discriminator convolution dim')
-parser.add_argument('--g_conv_dim', type=int, default=64,
+parser.add_argument('--g_conv_dim', type=int, default=32,
                     help='generator convolution dim')
 parser.add_argument('--z_size', type=int, default=100,
                     help='z size')
 parser.add_argument('--learning_rate', type=float, default=0.0002, 
                     help='learning rate')
+parser.add_argument('--negative_slope', type=float, default=0.02, 
+                    help='negative slope')
 parser.add_argument('--beta1', type=float, default=0.9, 
                     help='beta1 coefficient used for computing running averages of gradient and its square')
 parser.add_argument('--beta2', type=float, default=0.999, 
@@ -56,6 +58,7 @@ d_conv_dim = args.d_conv_dim
 g_conv_dim = args.g_conv_dim
 z_size = args.z_size
 lr = args.learning_rate
+negative_slope = args.negative_slope
 beta1 = args.beta1
 beta2 = args.beta2
 n_epochs = args.num_epochs
@@ -125,7 +128,7 @@ scaled_img = scale(img)
 print('Min: ', scaled_img.min())
 print('Max: ', scaled_img.max())
 
-def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, negative_slope=0.2, batch_norm=True):
+def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, negative_slope=0.2, dropout=0.4, batch_norm= True):
     layers = []
     conv_layer = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
                        kernel_size = kernel_size, stride = stride, padding = padding, bias = False)
@@ -133,10 +136,11 @@ def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, negative_s
     if batch_norm:
         layers.append(nn.BatchNorm2d(out_channels))
     layers.append(nn.LeakyReLU(negative_slope))
+    layers.append(nn.Dropout(p=dropout))
     return nn.Sequential(*layers)
 
 class Discriminator(nn.Module):
-    def __init__(self, conv_dim):
+    def __init__(self, conv_dim, negative_slope=0.2):
         """
         Initialize the Discriminator Module
         :param conv_dim: The depth of the first convolutional layer
@@ -145,14 +149,10 @@ class Discriminator(nn.Module):
 
         # complete init function
         self.conv_dim = conv_dim
-
-        # 32x32 input
-        self.conv1 = conv(3, conv_dim, 4, negative_slope=0.2, batch_norm=False)
-        # 16x16 out
-        self.conv2 = conv(conv_dim, conv_dim*2, 4, negative_slope=0.2)
-        # 8x8 out
-        self.conv3 = conv(conv_dim*2, conv_dim*4, 4, negative_slope=0.2)
-        # 4x4 out
+        
+        self.conv1 = conv(3, conv_dim, 4, negative_slope=negative_slope, batch_norm=False)
+        self.conv2 = conv(conv_dim, conv_dim*2, 4, negative_slope=negative_slope)
+        self.conv3 = conv(conv_dim*2, conv_dim*4, 4, negative_slope=negative_slope)
         
         # final, fully-connected layer
         self.fc = nn.Linear(conv_dim*4*4*4, 1)
@@ -183,7 +183,8 @@ def deconv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_no
     return nn.Sequential(*layers)
 
 class Generator(nn.Module):
-    def __init__(self, z_size, conv_dim):
+    
+    def __init__(self, z_size, conv_dim, dropout=0.4):
         """
         Initialize the Generator Module
         :param z_size: The length of the input latent vector, z
@@ -193,12 +194,16 @@ class Generator(nn.Module):
 
         # complete init function
         self.conv_dim = conv_dim
-
-        self.fc = nn.Linear(z_size, conv_dim*4*4*4)
         
-        self.t_conv1 = deconv(conv_dim*4, conv_dim*2, 4)
-        self.t_conv2 = deconv(conv_dim*2, conv_dim, 4)
-        self.t_conv3 = deconv(conv_dim, 3, 4, batch_norm=False)
+        self.fc = nn.Linear(z_size, conv_dim*8*2*2)
+        
+        self.dropout = nn.Dropout(p=dropout)
+        
+        self.t_conv1 = deconv(conv_dim*8, conv_dim*4, 4)
+        self.t_conv2 = deconv(conv_dim*4, conv_dim*2, 4)
+        self.t_conv3 = deconv(conv_dim*2, conv_dim, 4)
+        self.t_conv4 = deconv(conv_dim, 3, 4, batch_norm=False)
+
     def forward(self, x):
         """
         Forward propagation of the neural network
@@ -206,19 +211,20 @@ class Generator(nn.Module):
         :return: A 32x32x3 Tensor image as output
         """
         # define feedforward behavior
-        
-        # fully-connected + reshape
         x = self.fc(x)
-        x = x.view(-1, self.conv_dim*4, 4, 4) # (batch_size, depth, 4, 4)
+        x = x.view(-1, self.conv_dim*8, 2, 2)
         
-        # hidden transpose conv layers + relu
+        x = self.dropout(x)
+        
         x = self.t_conv1(x)
         x = F.relu(x)
         x = self.t_conv2(x)
         x = F.relu(x)
+        x = self.t_conv3(x)
+        x = F.relu(x)
         
         # last layer: tanh activation instead of relu
-        x = self.t_conv3(x)
+        x = self.t_conv4(x)
         x = torch.tanh(x)
         
         return x
@@ -237,14 +243,16 @@ def weights_init_normal(m):
     
     # TODO: Apply initial weights to convolutional and linear layers
     if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
-        nn.init.normal_(m.weight.data, 0.0, 0.2)
+        #nn.init.normal_(m.weight.data, 0.0, 0.2)
+        # Testing Xavier Initialization as recommended in my Udacity Project Review
+        nn.init.xavier_normal_(m.weight.data)
         
     if hasattr(m, 'bias') and m.bias is not None:
         nn.init.constant_(m.bias.data, 0.0)
 
-def build_network(d_conv_dim, g_conv_dim, z_size):
+def build_network(d_conv_dim, g_conv_dim, z_size, negative_slope):
     # define discriminator and generator
-    D = Discriminator(d_conv_dim)
+    D = Discriminator(d_conv_dim, negative_slope)
     G = Generator(z_size=z_size, conv_dim=g_conv_dim)
 
     # initialize model weights
@@ -256,7 +264,7 @@ def build_network(d_conv_dim, g_conv_dim, z_size):
     print(G)
     
     return D, G
-D, G = build_network(d_conv_dim, g_conv_dim, z_size)
+D, G = build_network(d_conv_dim, g_conv_dim, z_size, negative_slope)
 
 # Check for a GPU
 train_on_gpu = torch.cuda.is_available()
