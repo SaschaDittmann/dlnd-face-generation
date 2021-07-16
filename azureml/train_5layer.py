@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torchsummaryX import summary
 import argparse
 
 from azureml.core.dataset import Dataset
@@ -150,17 +151,17 @@ class Discriminator(nn.Module):
         self.conv_dim = conv_dim
 
         # 32x32 input
-        self.conv1 = conv(3, conv_dim, 4, negative_slope=0.2, batch_norm=False)
+        self.conv1 = conv(3, conv_dim, 5, padding=2, negative_slope=0.2, batch_norm=False)
         # 16x16 out
-        self.conv2 = conv(conv_dim, conv_dim*2, 4, negative_slope=0.2)
+        self.conv2 = conv(conv_dim, conv_dim*2, 5, padding=2, negative_slope=0.2)
         # 8x8 out
-        self.conv3 = conv(conv_dim*2, conv_dim*4, 4, negative_slope=0.2)
+        self.conv3 = conv(conv_dim*2, conv_dim*4, 5, padding=2, negative_slope=0.2)
         # 4x4 out
-        self.conv4 = conv(conv_dim*4, conv_dim*8, 4, negative_slope=0.2)
+        self.conv4 = conv(conv_dim*4, conv_dim*8, 5, padding=2, negative_slope=0.2)
         # 2x2 out
         
         # final, fully-connected layer
-        self.fc = nn.Linear(conv_dim*8*2*2, 1)
+        self.fc = nn.Linear(conv_dim*32*4*4, 1)
         
     def forward(self, x):
         """
@@ -175,15 +176,14 @@ class Discriminator(nn.Module):
         x = self.conv4(x)
         
         # flatten
-        x = x.view(-1, self.conv_dim*8*2*2)
+        x = x.view(-1, self.conv_dim*32*4*4)
         
         x = self.fc(x)
         return x
-tests.test_discriminator(Discriminator)
 
-def deconv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_norm=True):
+def deconv(in_channels, out_channels, kernel_size, stride=2, padding=1, output_padding=1, batch_norm=True):
     layers = []
-    layers.append(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, bias=False))
+    layers.append(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding, bias=False))
     if batch_norm:
         layers.append(nn.BatchNorm2d(out_channels))
     return nn.Sequential(*layers)
@@ -200,12 +200,12 @@ class Generator(nn.Module):
         # complete init function
         self.conv_dim = conv_dim
 
-        self.fc = nn.Linear(z_size, conv_dim*8*2*2)
+        self.fc = nn.Linear(z_size, conv_dim*16*8*8)
         
-        self.t_conv1 = deconv(conv_dim*8, conv_dim*4, 4)
-        self.t_conv2 = deconv(conv_dim*4, conv_dim*2, 4)
-        self.t_conv3 = deconv(conv_dim*2, conv_dim, 4)
-        self.t_conv4 = deconv(conv_dim, 3, 4, batch_norm=False)
+        self.t_conv1 = deconv(conv_dim*16, conv_dim*8, 5, padding=2)
+        self.t_conv2 = deconv(conv_dim*8, conv_dim*4, 5, padding=2)
+        self.t_conv3 = deconv(conv_dim*4, conv_dim*2, 5, padding=2)
+        self.t_conv4 = deconv(conv_dim*2, 3, 5, padding=2, batch_norm=False)
     def forward(self, x):
         """
         Forward propagation of the neural network
@@ -216,7 +216,7 @@ class Generator(nn.Module):
         
         # fully-connected + reshape
         x = self.fc(x)
-        x = x.view(-1, self.conv_dim*8, 2, 2)
+        x = x.view(-1, self.conv_dim*16, 8, 8)
         
         # hidden transpose conv layers + relu
         x = self.t_conv1(x)
@@ -231,7 +231,6 @@ class Generator(nn.Module):
         x = torch.tanh(x)
         
         return x
-tests.test_generator(Generator)
 
 def weights_init_normal(m):
     """

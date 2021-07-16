@@ -14466,7 +14466,28 @@ Epoch [   30/   30] | d_loss: 1.1850 | g_loss: 1.2574
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><strong>Answer:</strong> (Write your answer in this cell)</p>
+<p><strong>Answer:</strong></p>
+<p>As mentioned in the notes, the dataset consists mainly of white people. However, to increase the quality of the model, it would make sense to have a balanced dataset, i.e. more images overall, balanced amount of images of people of different origins.</p>
+<p>Also larger images (with for example 128x128 pixels) should produce more realistic results. 
+But for this the model must have more layers, and possibly use a larger kernel and padding per layer.
+The models also needs to train more epochs to converge.</p>
+<p>To test this, I downloaded a larger date set from Kaggle (<a href="https://www.kaggle.com/greg115/celebrities-100k">100k celebrities</a>) and trained it with an appropriate GAN.</p>
+<ul>
+<li><a href="azureml/train_5layer.py">my 5-layer training script</a></li>
+<li><a href="azureml/azureml_face_generation.ipynb">the notebook I used to train all the networks on Microsoft Azure</a></li>
+</ul>
+<p>I also separated the learning rate of the Generator and Discriminator and adjusted them accordingly.</p>
+
+<pre><code>num_epochs = 60 
+batch_size = 256
+img_size = 128
+d_conv_dim = 64
+g_conv_dim = 64
+z_size = 100
+d_learning_rate = 0.00004
+g_learning_rate = 0.0002
+beta1 = 0.5
+beta2 = 0.999</code></pre>
 
 </div>
 </div>
