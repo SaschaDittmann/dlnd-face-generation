@@ -435,7 +435,7 @@ def view_samples(epoch, samples):
         img = ((img + 1)*255 / (2)).astype(np.uint8)
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
-        im = ax.imshow(img.reshape((32,32,3)))
+        im = ax.imshow(img.reshape((128,128,3)))
     run.log_image(name='Generated Images', plot=plt)
 
 samples_filename = os.path.join(args.output_dir, "train_samples.pkl")
