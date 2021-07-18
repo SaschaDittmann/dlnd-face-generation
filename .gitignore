@@ -132,3 +132,7 @@ dmypy.json
 .azureml/
 azureml/train/
 azureml/conda_dependencies.yml
+
+train_samples.pkl
+trained_discriminator.pt
+trained_generator.pt
